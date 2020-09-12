@@ -12,7 +12,7 @@ RUN apt-get update
 RUN apt-get install -y gnupg2
 
 ###################################
-# DOCKER POSTGRES SETUP ENDS HERE #
+# DOCKER POSTGRES STARTS HERE     #
 ###################################
 
 # Add the PostgreSQL PGP key to verify their Debian packages.
@@ -58,7 +58,50 @@ VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 # Set the default command to run when starting the container
 CMD ["/usr/lib/postgresql/9.3/bin/postgres", "-D", "/var/lib/postgresql/9.3/main", "-c", "config_file=/etc/postgresql/9.3/main/postgresql.conf"]
 
+CMD [“echo”,”DATABASE SETUP COMPLETED”] 
 
 ###################################
 # DOCKER POSTGRES SETUP ENDS HERE #
 ###################################
+
+
+
+############################
+# PYTHON SETUP STARTS HERE #
+############################
+
+FROM python:latest
+
+WORKDIR /usr/src/app
+
+COPY requirements.txt ./
+
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+##########################
+# PYTHON SETUP ENDS HERE #
+##########################
+
+########################
+# GIT SETUP START HERE #
+########################
+
+RUN apt-get install git
+
+######################
+# GIT SETUP END HERE #
+######################
+
+#########################
+# CLONE GIT SETUP START #
+#########################
+
+RUN git clone https://SugaanthMohan:<ADD-TOKEN-HERE>@github.com/SugaanthMohan/<REPOSITORY>.git
+
+
+#########################
+# CLONE GIT SETUP END   #
+#########################
+
+CMD [“echo”,”IMAGE CREATION COMPLETED”] 
