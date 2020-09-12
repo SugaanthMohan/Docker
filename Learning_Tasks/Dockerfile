@@ -32,15 +32,15 @@ RUN apt-get update && apt-get install -y software-properties-common postgresql-9
 # after each ``apt-get``
 
 # Run the rest of the commands as the ``postgres`` user created by the ``postgres-9.3`` package when it was ``apt-get installed``
-USER LearningTasker
+USER postgres
 
 # Create a PostgreSQL role named ``docker`` with ``docker`` as the password and
 # then create a database `docker` owned by the ``docker`` role.
 # Note: here we use ``&&\`` to run commands one after the other - the ``\``
 #       allows the RUN command to span multiple lines.
 RUN    /etc/init.d/postgresql start &&\
-    psql --command "CREATE USER LearningTasker WITH SUPERUSER PASSWORD 'India$5678';" &&\
-    createdb -O suganth LearningTasks
+    psql -U postgres -c "CREATE USER learningtasker WITH SUPERUSER PASSWORD 'Global$5678';" &&\
+    createdb -O learningtasker learningtasks
 
 # Adjust PostgreSQL configuration so that remote connections to the
 # database are possible.
