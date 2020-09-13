@@ -11,23 +11,25 @@ RUN apt-get update
 # ADD THE GNUPG2 FOR UBUNTU OPERATION
 RUN apt-get install -y gnupg2
 
+
+# ==========================================================================================================
+
+WORKDIR /tmp/postgres10
+
 ###################################
 # DOCKER POSTGRES STARTS HERE     #
 ###################################
 
-# Add the PostgreSQL PGP key to verify their Debian packages.
-# It should be the same key as https://www.postgresql.org/media/keys/ACCC4CF8.asc
-RUN apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+RUN apt-get install -y wget ca-certificates
 
-# Add PostgreSQL's repository. It contains the most recent stable release
-#  of PostgreSQL.
-RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ precise-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 
-# Install ``python-software-properties``, ``software-properties-common`` and PostgreSQL 9.3
-#  There are some warnings (in red) that show up during the build. You can hide
-#  them by prefixing each apt-get statement with DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y software-properties-common postgresql-9.3 postgresql-client-9.3 postgresql-contrib-9.3
+RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ precise-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
 
+RUN apt-get update
+
+RUN apt-get update && apt-get install -y software-properties-common postgresql postgresql-contrib
+ 
 # Note: The official Debian and Ubuntu images automatically ``apt-get clean``
 # after each ``apt-get``
 
@@ -39,69 +41,107 @@ USER postgres
 # Note: here we use ``&&\`` to run commands one after the other - the ``\``
 #       allows the RUN command to span multiple lines.
 RUN    /etc/init.d/postgresql start &&\
-    psql -U postgres -c "CREATE USER learningtasker WITH SUPERUSER PASSWORD 'Global$5678';" &&\
+    psql -U postgres -c "CREATE USER learningtasker WITH SUPERUSER PASSWORD 'm3rg3r';" &&\
+    psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'm3rg3r';" &&\
     createdb -O learningtasker learningtasks
 
 # Adjust PostgreSQL configuration so that remote connections to the
 # database are possible.
-RUN echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/9.3/main/pg_hba.conf
+RUN echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/10/main/pg_hba.conf
 
 # And add ``listen_addresses`` to ``/etc/postgresql/9.3/main/postgresql.conf``
-RUN echo "listen_addresses='*'" >> /etc/postgresql/9.3/main/postgresql.conf
+RUN echo "listen_addresses='*'" >> /etc/postgresql/10/main/postgresql.conf
 
 # Expose the PostgreSQL port
 EXPOSE 5432
 
-# Add VOLUMEs to allow backup of config, logs and databases
-VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 
-# Set the default command to run when starting the container
-CMD ["/usr/lib/postgresql/9.3/bin/postgres", "-D", "/var/lib/postgresql/9.3/main", "-c", "config_file=/etc/postgresql/9.3/main/postgresql.conf"]
-
-CMD [“echo”,”DATABASE SETUP COMPLETED”] 
 
 ###################################
 # DOCKER POSTGRES SETUP ENDS HERE #
 ###################################
 
+# ==========================================================================================================
 
+###################################
+# DOCKER PYTHON SETUP STARTS HERE #
+###################################
 
-############################
-# PYTHON SETUP STARTS HERE #
-############################
+USER root
 
-FROM python:latest
+# ADD OTHER ADDITIONAL REQUIREMENTS HERE
+RUN apt-get install -y git less vim grep sed
 
-WORKDIR /usr/src/app
+# ADD REQUIRED PACKAGES FOR INSTALL 
+RUN apt-get install -y build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libsqlite3-dev libreadline-dev libffi-dev wget libbz2-dev
+
+# MOVE WORKING DIRECTORY TO TEMP 
+WORKDIR /tmp/python_install
+
+# DOWNLOAD THE TAR FILE 
+RUN wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tgz
+
+# EXTRACT THE GZIPPED TAR BALL
+RUN tar -xf Python-3.8.0.tgz
+
+# MOVE INSIDE THE DIRECTORY
+WORKDIR ./Python-3.8.0/
+
+RUN chmod +x configure
+
+RUN ./configure --enable-optimizations
+
+# MAKE INSTALL
+RUN make altinstall
+
+# python3.8 --version
+RUN python3.8 --version
+
+# PULL THE GIT PROJECT INTO HERE
+WORKDIR /tmp/python_requirements/
 
 COPY requirements.txt ./
 
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN python3.8 -m pip install --upgrade pip
 
-##########################
-# PYTHON SETUP ENDS HERE #
-##########################
+RUN apt-get install -y postgresql
+RUN apt-get install -y python-psycopg2
+RUN apt-get install -y libpq-dev
 
-########################
-# GIT SETUP START HERE #
-########################
+RUN python3.8 -m pip install psycopg2
+RUN python3.8 -m pip install pandas
+RUN python3.8 -m pip install numpy
+RUN python3.8 -m pip install cryptography
 
-RUN apt-get install git
-
-######################
-# GIT SETUP END HERE #
-######################
-
-#########################
-# CLONE GIT SETUP START #
-#########################
-
-RUN git clone https://SugaanthMohan:<ADD-TOKEN-HERE>@github.com/SugaanthMohan/<REPOSITORY>.git
+###################################
+# DOCKER PYTHON SETUP STOPS HERE #
+###################################
 
 
-#########################
-# CLONE GIT SETUP END   #
-#########################
+#############################
+# PROJECT SETUP STARTS HERE #
+#############################
 
-CMD [“echo”,”IMAGE CREATION COMPLETED”] 
+
+# SETUP YOUR USER WORK DIRECTORY HERE
+WORKDIR /home/sugaanth/
+
+RUN git clone https://SugaanthMohan:<TOKEN>@github.com/SugaanthMohan/<REPOSITORY>.git --branch master --single-branch ./<REPOSITORY>/
+
+RUN chmod -R 777 /home/sugaanth/
+
+# USER POSTGRES
+USER postgres
+
+# Add VOLUMEs to allow backup of config, logs and databases
+VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
+
+# Set the default command to run when starting the container
+CMD ["/usr/lib/postgresql/10/bin/postgres", "-D", "/var/lib/postgresql/10/main", "-c", "config_file=/etc/postgresql/10/main/postgresql.conf"]
+
+WORKDIR /home/sugaanth/
+
+
+#############################
+# PROJECT SETUP ENDS HERE   #
+#############################
